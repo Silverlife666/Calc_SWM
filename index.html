@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kalkulator bobin SWM</title>
+<style>
+:root{--navy:#123b69;--ink:#142238;--line:#cbd8e6;--pale:#eff5fb;--green:#17815d;--red:#b43d3d}*{box-sizing:border-box}body{margin:0;background:#edf3f8;color:var(--ink);font:16px Inter,Segoe UI,Arial,sans-serif}header{background:var(--navy);color:#fff;padding:23px max(24px,calc((100vw - 1300px)/2));display:flex;justify-content:space-between;gap:20px;align-items:center}h1{font-size:1.5rem;margin:0}header p{margin:4px 0 0;color:#cbdcf0;font-size:.88rem}.main{max-width:1300px;margin:auto;padding:26px 24px 48px}.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:0 5px 16px #15395b12;margin-bottom:20px}h2{font-size:1.15rem;margin:0 0 5px}.note{color:#63778e;font-size:.87rem;margin:0 0 16px}.grid{display:grid;grid-template-columns:260px 1fr;gap:20px}.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}label{display:block;font-size:.75rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;margin:8px 0 5px}input,select{width:100%;padding:10px;border:1px solid #b7c6d7;border-radius:7px;font:inherit;color:var(--ink)}button,.file{border:0;border-radius:7px;padding:10px 13px;background:var(--navy);color:white;font:800 .86rem inherit;cursor:pointer;text-align:center}.secondary{background:#e5edf7;color:var(--navy)}.danger{background:var(--red)}.file input{display:none}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:.87rem}th{background:var(--navy);color:#fff;text-align:left;font-size:.73rem;letter-spacing:.05em}td,th{padding:10px;border:1px solid var(--line)}tbody tr:nth-child(even){background:#f8fbfe}.result{font-size:1.65rem;font-weight:900;color:var(--navy);margin:8px 0}.metric{background:var(--pale);border:1px solid #d1dfed;border-radius:8px;padding:12px;margin-bottom:10px}.metric span{font-size:.7rem;font-weight:800;letter-spacing:.06em;color:#60758c}.metric strong{display:block;margin-top:3px;font-size:1.25rem}.empty{color:#74859a;font-size:.9rem;padding:12px 0}.tag{background:#e7f5ef;color:#126b4d;border-radius:4px;padding:3px 6px;font-size:.75rem;font-weight:800}.record-actions button{font-size:.72rem;padding:4px 7px}.hidden{display:none}@media(max-width:800px){.grid,.two,.form-grid{grid-template-columns:1fr}header{display:block}header button{margin-top:12px}}@media print{body{background:white}.no-print,header button,.record-actions{display:none!important}.main{padding:0}.card{border:0;box-shadow:none;padding:0}}
+</style>
+</head>
+<body>
+<header><div><h1>🧻 Kalkulator bobin SWM</h1><p>Tuleja wewnętrzna: 130 mm · wersja offline</p></div><button onclick="generatePdf()">⬇ Pobierz raport PDF</button></header>
+<main class="main">
+<section class="card"><h2>🧻 Kalkulator bobin SWM</h2><p class="note">Podaj średnicę zewnętrzną bobiny. Długość jest wyliczana dla aktywnych kalibracji papieru.</p><div class="grid"><div><label>Średnica zewnętrzna bobiny [mm]<input id="calcDiameter" type="number" min="130.1" step="0.1" value="365" oninput="renderCalculator()"></label><div class="metric"><span>TULEJA WEWNĘTRZNA</span><strong>130 mm</strong></div><p id="formulaHint" class="note"></p></div><div class="table-wrap"><table><thead><tr><th>Papier</th><th>Długość nawoju</th><th>Grubość efektywna</th><th>Kalibracja aktywna</th></tr></thead><tbody id="calcRows"></tbody></table></div></div>
+<details class="no-print"><summary><b>➕ Kalibracja nowej dostawy</b></summary><div class="form-grid"><label>Papier<select id="calPaper"></select></label><label id="newPaperWrap" class="hidden">Nazwa nowego papieru<input id="newPaper"></label><label>Opis dostawy / partii<input id="calDelivery" placeholder="np. dostawa 2026-09-01"></label><label>Średnica wzorcowa [mm]<input id="calDiameter" type="number" min="130.1" step="0.1" value="365"></label><label>Potwierdzona długość [m]<input id="calLength" type="number" min="1" step="1" value="5000"></label></div><div class="actions"><button onclick="saveCalibration()">Zapisz i ustaw jako aktywną</button></div></details></section>
+<section class="card"><h2>📋 Inwentaryzacja bobin</h2><p class="note">Pozycje są zapisywane lokalnie w tej przeglądarce. Możesz przenieść je na drugi komputer przez plik JSON.</p><div class="form-grid no-print"><label>Papier<select id="invPaper"></select></label><label>Średnica zewnętrzna [mm]<input id="invDiameter" type="number" min="130.1" step="0.1" value="240"></label><label>Liczba sztuk<input id="invQuantity" type="number" min="1" step="1" value="1"></label></div><div class="actions no-print"><button onclick="addRecord()">Dodaj do inwentaryzacji</button><button class="secondary" onclick="exportData()">Eksportuj JSON</button><label class="file">Importuj JSON<input type="file" accept="application/json" onchange="importData(event)"></label><button class="danger" onclick="clearRecords()">Wyczyść inwentaryzację</button></div>
+<h3>Podsumowanie według typu papieru</h3><div id="summary" class="table-wrap"></div><h3>Pozycje inwentaryzacji</h3><div id="records" class="table-wrap"></div></section>
+</main>
+<script>
+const CORE=130,KEY="kalkulator-bobin-swm-html-v1",DEFAULTS=[["Różowy 14 gsm",365,5000],["Biały 14 gsm",365,5000],["Biały 12,5 gsm",280,3000],["Organic 13,5 gsm",295,5000],["Niebieski 14 gsm",359,5000],["Brązowy 14 gsm",362,5000]];let state=JSON.parse(localStorage.getItem(KEY)||"null")||{calibrations:{},records:[]};const el=id=>document.getElementById(id),fmt=n=>new Intl.NumberFormat("pl-PL",{maximumFractionDigits:0}).format(n),esc=v=>String(v||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+function thickness(d,l){return Math.PI*(d*d-CORE*CORE)/4/(l*1000)}function length(d,t){return Math.PI*(d*d-CORE*CORE)/4/t*.001}function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function init(){DEFAULTS.forEach(x=>{if(!state.calibrations[x[0]])state.calibrations[x[0]]={thickness:thickness(x[1],x[2]),reference:"wzorzec: Ø"+x[1]+" mm = "+x[2]+" m"}});save();renderAll()}
+function papers(){return Object.keys(state.calibrations).sort((a,b)=>a.localeCompare(b,"pl"))}function selectOptions(id,includeNew){let old=el(id).value,opts=papers().map(x=>"<option>"+esc(x)+"</option>");if(includeNew)opts.push("<option value='__new__'>➕ Dodaj nowy papier</option>");el(id).innerHTML=opts.join("");if([...el(id).options].some(o=>o.value===old))el(id).value=old}
+function renderCalculator(){let d=Number(el("calcDiameter").value),body=el("calcRows");if(!(d>CORE)){body.innerHTML="<tr><td colspan='4'>Podaj średnicę większą niż 130 mm.</td></tr>";return}body.innerHTML=papers().map(p=>{let c=state.calibrations[p],m=length(d,c.thickness);return"<tr><td><b>"+esc(p)+"</b></td><td>"+fmt(m)+" m</td><td>"+(c.thickness*1000).toFixed(3)+" µm</td><td>"+esc(c.reference)+"</td></tr>"}).join("");el("formulaHint").textContent="Wzór uwzględnia zewnętrzną średnicę tulei 130 mm."}
+function renderAll(){selectOptions("calPaper",true);selectOptions("invPaper",false);renderCalculator();renderInventory();el("calPaper").onchange=()=>el("newPaperWrap").classList.toggle("hidden",el("calPaper").value!=="__new__")}
+function saveCalibration(){let selected=el("calPaper").value,paper=selected==="__new__"?el("newPaper").value.trim():selected,d=Number(el("calDiameter").value),l=Number(el("calLength").value),delivery=el("calDelivery").value.trim();if(!paper||!(d>CORE)||!(l>0))return alert("Uzupełnij papier, średnicę i długość.");state.calibrations[paper]={thickness:thickness(d,l),reference:"dostawa: "+(delivery||"bez opisu")+" · Ø"+d+" mm = "+fmt(l)+" m"};save();el("newPaper").value="";el("calDelivery").value="";renderAll()}
+function addRecord(){let paper=el("invPaper").value,d=Number(el("invDiameter").value),q=Math.floor(Number(el("invQuantity").value)),c=state.calibrations[paper];if(!paper||!(d>CORE)||!(q>0))return alert("Uzupełnij dane inwentaryzacji.");let per=length(d,c.thickness);state.records.unshift({id:crypto.randomUUID(),createdAt:new Date().toLocaleString("pl-PL"),paper,diameter:d,quantity:q,metersPerPiece:per,meters:per*q});save();renderInventory()}
+function renderInventory(){let totals={};state.records.forEach(r=>{let x=totals[r.paper]||(totals[r.paper]={pieces:0,meters:0});x.pieces+=r.quantity;x.meters+=r.meters});let sum=Object.keys(totals).sort().map(p=>"<tr><td>"+esc(p)+"</td><td>"+totals[p].pieces+"</td><td>"+fmt(totals[p].meters)+" m</td><td>"+(totals[p].meters/5000).toFixed(2)+"</td></tr>").join("");el("summary").innerHTML=sum?"<table><thead><tr><th>Papier</th><th>Suma sztuk</th><th>Suma metrów</th><th>Ekwiwalent 5000 m</th></tr></thead><tbody>"+sum+"</tbody></table>":"<p class='empty'>Inwentaryzacja jest pusta.</p>";let rows=state.records.map(r=>"<tr><td>"+esc(r.createdAt)+"</td><td>"+esc(r.paper)+"</td><td>"+r.diameter.toFixed(1)+"</td><td>"+r.quantity+"</td><td>"+fmt(r.metersPerPiece)+" m</td><td>"+fmt(r.meters)+" m</td><td class='record-actions'><button class='danger' onclick=\"removeRecord('"+r.id+"')\">Usuń</button></td></tr>").join("");el("records").innerHTML=rows?"<table><thead><tr><th>Data</th><th>Papier</th><th>Średnica [mm]</th><th>Sztuki</th><th>Metry / szt.</th><th>Metry razem</th><th class='no-print'></th></tr></thead><tbody>"+rows+"</tbody></table>":"<p class='empty'>Brak pozycji.</p>"}
+function removeRecord(id){if(confirm("Usunąć pozycję?")){state.records=state.records.filter(r=>r.id!==id);save();renderInventory()}}function clearRecords(){if(confirm("Wyczyścić całą inwentaryzację?")){state.records=[];save();renderInventory()}}
+function exportData(){let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:"application/json"}));a.download="inwentaryzacja_bobin_swm.json";a.click()}function importData(e){let f=e.target.files[0],r=new FileReader();if(!f)return;r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.calibrations||!Array.isArray(x.records))throw 0;state=x;save();renderAll()}catch(_){alert("Nieprawidłowy plik JSON.")}};r.readAsText(f)}
+function ascii(v){let m={"ą":"a","ć":"c","ę":"e","ł":"l","ń":"n","ó":"o","ś":"s","ź":"z","ż":"z","Ą":"A","Ć":"C","Ę":"E","Ł":"L","Ń":"N","Ó":"O","Ś":"S","Ź":"Z","Ż":"Z"};return String(v||"").replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g,c=>m[c]||c).replace(/[\(\)\\]/g,c=>"\\"+c)}function pdf(rows){let lines=["0.07 0.23 0.41 rg 45 505 752 58 re f","1 1 1 rg BT /F2 20 Tf 62 530 Td (RAPORT INWENTARYZACJI BOBIN SWM) Tj ET","0.78 0.86 0.94 rg BT /F2 8 Tf 62 548 Td (KALKULATOR PRODUKCJI) Tj ET","0.94 0.96 0.98 rg 45 460 752 29 re f","0.08 0.13 0.21 rg BT /F2 10 Tf 60 471 Td (Stan inwentaryzacji / tuleja wewnetrzna 130 mm) Tj ET","0.07 0.23 0.41 rg 45 425 752 22 re f","1 1 1 rg BT /F2 8 Tf 57 433 Td (DATA) Tj ET","BT /F2 8 Tf 170 433 Td (PAPIER) Tj ET","BT /F2 8 Tf 390 433 Td (SREDNICA) Tj ET","BT /F2 8 Tf 480 433 Td (SZT.) Tj ET","BT /F2 8 Tf 550 433 Td (METRY) Tj ET"];let y=425;rows.slice(0,16).forEach(r=>{y-=22;lines.push("0.79 0.85 0.91 RG 0.3 w 45 "+y+" m 797 "+y+" l S","0.08 0.13 0.21 rg BT /F1 8 Tf 57 "+(y+8)+" Td ("+ascii(r.createdAt)+") Tj ET","BT /F1 8 Tf 170 "+(y+8)+" Td ("+ascii(r.paper).slice(0,35)+") Tj ET","BT /F1 8 Tf 390 "+(y+8)+" Td ("+r.diameter.toFixed(1)+" mm) Tj ET","BT /F1 8 Tf 480 "+(y+8)+" Td ("+r.quantity+") Tj ET","BT /F1 8 Tf 550 "+(y+8)+" Td ("+fmt(r.meters)+" m) Tj ET")});let stream=lines.join("\\n"),objs=["","<< /Type /Catalog /Pages 2 0 R >>","<< /Type /Pages /Kids [3 0 R] /Count 1 >>","<< /Type /Page /Parent 2 0 R /MediaBox [0 0 841.89 595.28] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>","<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>","<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>","<< /Length "+stream.length+" >>\\nstream\\n"+stream+"\\nendstream"],out="%PDF-1.4\\n",off=[0];for(let i=1;i<objs.length;i++){off[i]=out.length;out+=i+" 0 obj\\n"+objs[i]+"\\nendobj\\n"}let start=out.length;out+="xref\\n0 "+objs.length+"\\n0000000000 65535 f \\n";for(let i=1;i<objs.length;i++)out+=String(off[i]).padStart(10,"0")+" 00000 n \\n";return out+"trailer\\n<< /Size "+objs.length+" /Root 1 0 R >>\\nstartxref\\n"+start+"\\n%%EOF"}function generatePdf(){let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([pdf(state.records)],{type:"application/pdf"}));a.download="raport_inwentaryzacji_bobin_swm.pdf";a.click()}
+function pdf(rows){
+  let lines=[
+    "0.07 0.23 0.41 rg 45 505 752 58 re f",
+    "1 1 1 rg BT /F2 20 Tf 62 530 Td (RAPORT INWENTARYZACJI BOBIN SWM) Tj ET",
+    "0.78 0.86 0.94 rg BT /F2 8 Tf 62 548 Td (KALKULATOR PRODUKCJI) Tj ET",
+    "0.94 0.96 0.98 rg 45 460 752 29 re f",
+    "0.08 0.13 0.21 rg BT /F2 10 Tf 60 471 Td (Stan inwentaryzacji / tuleja wewnetrzna 130 mm) Tj ET",
+    "0.07 0.23 0.41 rg 45 425 752 22 re f",
+    "1 1 1 rg BT /F2 8 Tf 57 433 Td (DATA) Tj ET",
+    "BT /F2 8 Tf 170 433 Td (PAPIER) Tj ET",
+    "BT /F2 8 Tf 390 433 Td (SREDNICA) Tj ET",
+    "BT /F2 8 Tf 480 433 Td (SZT.) Tj ET",
+    "BT /F2 8 Tf 550 433 Td (METRY) Tj ET"
+  ], y=425;
+  rows.slice(0,16).forEach(r=>{
+    y-=22;
+    lines.push(
+      "0.79 0.85 0.91 RG 0.3 w 45 "+y+" m 797 "+y+" l S",
+      "0.08 0.13 0.21 rg BT /F1 8 Tf 57 "+(y+8)+" Td ("+ascii(r.createdAt)+") Tj ET",
+      "BT /F1 8 Tf 170 "+(y+8)+" Td ("+ascii(r.paper).slice(0,35)+") Tj ET",
+      "BT /F1 8 Tf 390 "+(y+8)+" Td ("+r.diameter.toFixed(1)+" mm) Tj ET",
+      "BT /F1 8 Tf 480 "+(y+8)+" Td ("+r.quantity+") Tj ET",
+      "BT /F1 8 Tf 550 "+(y+8)+" Td ("+fmt(r.meters)+" m) Tj ET"
+    );
+  });
+  let stream=lines.join("\n"), objects=[
+    "", "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 841.89 595.28] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+    "<< /Length "+stream.length+" >>\nstream\n"+stream+"\nendstream"
+  ], output="%PDF-1.4\n", offsets=[0];
+  for(let i=1;i<objects.length;i++){offsets[i]=output.length;output+=i+" 0 obj\n"+objects[i]+"\nendobj\n";}
+  let start=output.length;
+  output+="xref\n0 "+objects.length+"\n0000000000 65535 f \n";
+  for(let i=1;i<objects.length;i++)output+=String(offsets[i]).padStart(10,"0")+" 00000 n \n";
+  return output+"trailer\n<< /Size "+objects.length+" /Root 1 0 R >>\nstartxref\n"+start+"\n%%EOF";
+}
+init();
+</script>
+</body>
+</html>
